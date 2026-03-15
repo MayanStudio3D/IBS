@@ -133,90 +133,95 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] p-6 lg:p-12 space-y-12 animate-in fade-in duration-1000">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="p-3 bg-[#1E1E1E] rounded-2xl text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-all">
-            <ArrowLeft size={24} />
+    <div className="min-h-screen bg-[#121212] p-4 lg:p-8 space-y-8 animate-in fade-in duration-1000">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="p-2 bg-[#1E1E1E] rounded-xl text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-all">
+            <ArrowLeft size={20} />
           </Link>
           <div>
-            <h2 className="text-3xl lg:text-4xl font-black text-[#D4AF37] tracking-tighter uppercase italic">Relatórios de Vendas</h2>
-            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">Análise de Desempenho Imperial Barra Stone</p>
+            <h2 className="text-2xl lg:text-3xl font-black text-[#D4AF37] tracking-tighter uppercase italic leading-none">Relatórios de Vendas</h2>
+            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-[9px] mt-1">Análise de Desempenho Imperial Barra Stone</p>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3 bg-[#1E1E1E] p-2 rounded-2xl border border-white/5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#1E1E1E] p-1.5 rounded-xl border border-white/5">
             <input 
               type="date" 
               value={startDate} 
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent text-white text-xs font-black p-2 outline-none cursor-pointer"
+              className="bg-transparent text-white text-[10px] font-black px-2 outline-none cursor-pointer"
             />
-            <span className="text-gray-700 font-black">ATÉ</span>
+            <span className="text-gray-700 font-black text-[10px]">ATÉ</span>
             <input 
               type="date" 
               value={endDate} 
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent text-white text-xs font-black p-2 outline-none cursor-pointer"
+              className="bg-transparent text-white text-[10px] font-black px-2 outline-none cursor-pointer"
             />
           </div>
           <button 
             onClick={handleExport}
-            className="bg-[#D4AF37] text-[#121212] font-black px-6 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#B8860B] transition-all shadow-xl shadow-[#D4AF37]/20 active:scale-95 text-xs uppercase tracking-widest"
+            className="bg-[#D4AF37] text-[#121212] font-black px-4 py-3 rounded-xl flex items-center gap-2 hover:bg-[#B8860B] transition-all shadow-xl shadow-[#D4AF37]/20 active:scale-95 text-[10px] uppercase tracking-widest"
           >
-            <Download size={18} /> Exportar Relatório Mensal
+            <Download size={14} /> Exportar Relatório
           </button>
         </div>
       </header>
 
-      {/* Métricas Principais */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-[#1E1E1E] p-10 rounded-[3rem] border border-white/5 relative overflow-hidden group shadow-2xl">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 rounded-full -mr-12 -mt-12 blur-3xl group-hover:bg-[#D4AF37]/10 transition-all"></div>
-          <TrendingUp className="text-[#D4AF37] mb-6" size={32} />
-          <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Faturamento Total (Mês)</p>
-          <p className="text-4xl lg:text-5xl font-black text-white tracking-tighter mt-2">
-            R$ {stats.faturamentoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-black mt-4 uppercase">
-            <span>+12.5% vs mês anterior</span>
+      {/* Métricas Principais - Horizontal Style Compact */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-[#1E1E1E] p-6 rounded-[1.5rem] border border-white/5 shadow-lg flex items-center gap-6 group hover:border-[#D4AF37]/20 transition-all">
+          <div className="p-4 bg-[#D4AF37]/10 rounded-2xl group-hover:scale-110 transition-transform">
+            <TrendingUp size={24} className="text-[#D4AF37]" />
+          </div>
+          <div>
+            <p className="text-gray-500 font-black uppercase tracking-widest text-[9px] mb-0.5">Faturamento Total (Mês)</p>
+            <p className="text-2xl lg:text-3xl font-black text-white tracking-tighter">
+              R$ {stats.faturamentoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-emerald-400 text-[9px] font-black mt-0.5 uppercase">+12.5% vs anterior</p>
           </div>
         </div>
 
-        <div className="bg-[#1E1E1E] p-10 rounded-[3rem] border border-white/5 relative overflow-hidden group shadow-2xl">
-          <Package className="text-[#D4AF37] mb-6" size={32} />
-          <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Total $M^2$ Vendidos</p>
-          <p className="text-4xl lg:text-5xl font-black text-white tracking-tighter mt-2">
-            {stats.m2Total.toFixed(2)}
-          </p>
-          <div className="flex items-center gap-2 text-blue-400 text-xs font-black mt-4 uppercase">
-            <span>Volume industrial ativo</span>
+        <div className="bg-[#1E1E1E] p-6 rounded-[1.5rem] border border-white/5 shadow-lg flex items-center gap-6 group hover:border-[#D4AF37]/20 transition-all">
+          <div className="p-4 bg-blue-500/10 rounded-2xl group-hover:scale-110 transition-transform">
+            <Package size={24} className="text-blue-500" />
+          </div>
+          <div>
+            <p className="text-gray-500 font-black uppercase tracking-widest text-[9px] mb-0.5">Total M² Vendidos</p>
+            <p className="text-2xl lg:text-3xl font-black text-white tracking-tighter">
+              {stats.m2Total.toFixed(2)}
+            </p>
+            <p className="text-blue-400 text-[9px] font-black mt-0.5 uppercase">Volume Industrial</p>
           </div>
         </div>
 
-        <div className="bg-[#1E1E1E] p-10 rounded-[3rem] border border-white/5 relative overflow-hidden group shadow-2xl">
-          <BarChart3 className="text-[#D4AF37] mb-6" size={32} />
-          <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Taxa de Conversão</p>
-          <p className="text-4xl lg:text-5xl font-black text-white tracking-tighter mt-2">
-            {stats.taxaConversao.toFixed(1)}%
-          </p>
-          <div className="flex items-center gap-2 text-amber-500 text-xs font-black mt-4 uppercase">
-            <span>{stats.pedidosConfirmados} de {stats.orcamentosTotal} propostas</span>
+        <div className="bg-[#1E1E1E] p-6 rounded-[1.5rem] border border-white/5 shadow-lg flex items-center gap-6 group hover:border-[#D4AF37]/20 transition-all">
+          <div className="p-4 bg-purple-500/10 rounded-2xl group-hover:scale-110 transition-transform">
+            <BarChart3 size={24} className="text-purple-500" />
+          </div>
+          <div>
+            <p className="text-gray-500 font-black uppercase tracking-widest text-[9px] mb-0.5">Taxa de Conversão</p>
+            <p className="text-2xl lg:text-3xl font-black text-white tracking-tighter">
+              {stats.taxaConversao.toFixed(1)}%
+            </p>
+            <p className="text-amber-500 text-[9px] font-black mt-0.5 uppercase">{stats.pedidosConfirmados} de {stats.orcamentosTotal} propostas</p>
           </div>
         </div>
       </section>
 
       {/* Gráficos */}
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-        {/* Gráfico de Evolução */}
-        <div className="bg-[#1E1E1E] p-10 rounded-[3rem] border border-white/5 shadow-2xl space-y-8">
+        {/* Gráfico de Evolução Compact */}
+        <div className="bg-[#1E1E1E] p-6 rounded-[2rem] border border-white/5 shadow-xl space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">Evolução Faturamento</h3>
-            <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-widest">Últimos 6 Meses</span>
+            <h3 className="text-lg font-black text-white uppercase tracking-tighter italic">Evolução Faturamento</h3>
+            <span className="text-[9px] font-black text-[#D4AF37] uppercase tracking-widest">Últimos 6 Meses</span>
           </div>
           
-          <div className="h-[350px] w-full">
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={lineChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -254,14 +259,14 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Ranking de Materiais */}
-        <div className="bg-[#1E1E1E] p-10 rounded-[3rem] border border-white/5 shadow-2xl space-y-8">
+        {/* Ranking de Materiais Compact */}
+        <div className="bg-[#1E1E1E] p-6 rounded-[2rem] border border-white/5 shadow-xl space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">Top Materiais Vendidos</h3>
-            <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-widest">RANKING DE VALOR</span>
+            <h3 className="text-lg font-black text-white uppercase tracking-tighter italic">Top Materiais</h3>
+            <span className="text-[9px] font-black text-[#D4AF37] uppercase tracking-widest">RANKING DE VALOR</span>
           </div>
           
-          <div className="h-[350px] w-full">
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={materialRanking} layout="vertical">
                 <XAxis type="number" hide />
@@ -289,14 +294,14 @@ export default function ReportsPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-4 pt-4">
+          <div className="space-y-3 pt-2">
              {materialRanking.map((m, i) => (
-               <div key={i} className="flex items-center justify-between p-4 bg-[#121212] rounded-2xl border border-white/5 group hover:border-[#D4AF37]/30 transition-all">
-                  <div className="flex items-center gap-4">
-                     <span className="text-xl font-black text-gray-800 group-hover:text-[#D4AF37] transition-colors">0{i+1}</span>
-                     <p className="font-bold text-sm">{m.name}</p>
+               <div key={i} className="flex items-center justify-between p-3 bg-[#121212] rounded-xl border border-white/5 group hover:border-[#D4AF37]/30 transition-all gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                     <span className="text-lg font-black text-gray-800 group-hover:text-[#D4AF37] transition-colors flex-shrink-0">0{i+1}</span>
+                     <p className="font-bold text-[11px] truncate">{m.name}</p>
                   </div>
-                  <p className="font-black text-[#D4AF37] text-sm">
+                  <p className="font-black text-[#D4AF37] text-[11px] flex-shrink-0">
                     R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                </div>

@@ -17,8 +17,10 @@ import {
   Users,
   ChevronDown,
   Eye,
-  X
+  X,
+  Printer
 } from 'lucide-react';
+import { generatePDF } from '@/lib/pdf-generator';
 import { maskCPFCNPJ } from '@/lib/masks';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -337,7 +339,12 @@ export default function NovoOrcamentoPage() {
                 <p className="font-bold">{validade ? new Date(validade).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</p>
                 <div className="mt-4">
                   <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">Forma de Pagamento</p>
-                  <p className="font-bold uppercase italic">{condicaoPgto}</p>
+                  <p className="font-bold uppercase italic">
+                    {condicaoPgto === 'PARCELADO' 
+                      ? `${condicaoPgto} (${qtdParcelas}x de R$ ${(totalValor / qtdParcelas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})` 
+                      : condicaoPgto
+                    }
+                  </p>
                 </div>
               </div>
             </div>
@@ -379,8 +386,41 @@ export default function NovoOrcamentoPage() {
           </div>
 
           <footer className="p-6 bg-[#121212] flex gap-4">
-             <button onClick={() => setShowPreview(false)} className="flex-1 py-4 border border-white/10 rounded-xl text-gray-400 font-black uppercase text-[10px]">Voltar</button>
-             <button onClick={() => { setShowPreview(false); handleSave(); }} className="flex-[2] py-4 bg-[#D4AF37] text-black rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-3">
+             <button onClick={() => setShowPreview(false)} className="flex-1 py-4 border border-white/10 rounded-xl text-gray-400 font-black uppercase text-[10px] tracking-widest">Voltar</button>
+             <button 
+                onClick={() => {
+                  const cliente = clientes.find((c: any) => c.id === selectedCliente);
+                  generatePDF({
+                    id: 'PREVIEW',
+                    cliente_nome: cliente?.nome || 'Cliente Preview',
+                    cliente_documento: cliente?.cpf_cnpj || '',
+                    cliente_endereco: cliente?.endereco || '',
+                    vendedor_nome: 'Sistema',
+                    data: new Date().toLocaleDateString('pt-BR'),
+                    validade: validade ? new Date(validade).toLocaleDateString('pt-BR') : '-',
+                    items: items.map(i => ({ ...i, m2_total: calculateM2(i) })),
+                    total_m2: totalM2,
+                    total_valor: totalValor,
+                    condicao_pgto: condicaoPgto,
+                    parcelas: parcelas,
+                    empresa: {
+                      logo_url: empresaConfig?.logo_url,
+                      subtitulo: empresaConfig?.sistema_subtitulo,
+                      cnpj: empresaConfig?.empresa_cnpj,
+                      ie: empresaConfig?.empresa_ie,
+                      endereco: empresaConfig?.empresa_endereco,
+                      telefone: empresaConfig?.empresa_telefone,
+                      email: empresaConfig?.empresa_email,
+                      empresa_pix: empresaConfig?.empresa_pix,
+                      empresa_banco: empresaConfig?.empresa_banco
+                    }
+                  }, 'print');
+                }} 
+                className="flex-1 py-4 bg-emerald-600/20 text-emerald-500 border border-emerald-500/20 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-600 hover:text-white transition-all"
+             >
+                <Printer size={16} /> Imprimir Orçamento
+             </button>
+             <button onClick={() => { setShowPreview(false); handleSave(); }} className="flex-[2] py-4 bg-[#D4AF37] text-black rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-95">
                 <Save size={18} /> Confirmar e Salvar
              </button>
           </footer>

@@ -1,0 +1,22 @@
+<svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Symbol: Geometric Crown -->
+  <path d="M250 350L312.5 250L400 390L487.5 250L550 350L400 450L250 350Z" 
+        stroke="url(#gold_gradient)" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M312.5 250L400 390L487.5 250" 
+        stroke="url(#gold_gradient)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- "IMPERIAL" Text -->
+  <text x="400" y="550" text-anchor="middle" font-family="'Cinzel', serif" font-size="80" font-weight="400" letter-spacing="0.2em" fill="#1A1A1A">IMPERIAL</text>
+  
+  <!-- "BARRA STONES" Text -->
+  <text x="400" y="620" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="32" font-weight="800" letter-spacing="0.5em" fill="#333333">BARRA STONES</text>
+
+  <defs>
+    <linearGradient id="gold_gradient" x1="250" y1="250" x2="550" y2="450" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C9A84C"/>
+      <stop offset="50%" stop-color="#E5D192"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+    <link xmlns="http://www.w3.org/1999/xlink" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400&amp;family=Plus+Jakarta+Sans:wght@800&amp;display=swap" rel="stylesheet"/>
+  </defs>
+</svg>

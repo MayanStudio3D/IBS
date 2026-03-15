@@ -1,293 +1,439 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { 
-  Bell, 
-  Menu, 
-  TrendingUp, 
-  TrendingDown, 
-  FileText, 
-  Package, 
-  Users, 
-  Plus, 
-  ClipboardList,
-  DollarSign,
-  AlertTriangle,
-  ArrowRight,
-  Loader2,
-  BarChart3
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { 
+  ArrowRight, 
+  ChevronRight, 
+  User, 
+  ArrowUpRight, 
+  CheckCircle2, 
+  ShieldCheck, 
+  Sparkles,
+  Search,
+  Maximize2,
+  Compass,
+  Menu
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getUserRole, type UserRole } from '@/lib/auth-utils';
 
-export default function Dashboard() {
-  const [role, setRole] = useState<UserRole>('VENDEDOR');
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState([
-    { name: 'Faturamento Bruto', value: 'R$ 0,00', change: '+12.5%', icon: DollarSign, color: 'text-emerald-400', adminOnly: true },
-    { name: 'Clientes Ativos', value: '0', change: '+3', icon: Users, color: 'text-blue-400', adminOnly: false },
-    { name: 'Orçamentos Ativos', value: '0', change: '+4%', icon: FileText, color: 'text-amber-400', adminOnly: false },
-    { name: 'Alertas de Estoque', value: '0', change: '-2%', icon: AlertTriangle, color: 'text-rose-500', adminOnly: false },
-  ]);
-  const [atividades, setAtividades] = useState<any[]>([]);
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [nomeUsuario, setNomeUsuario] = useState('Usuário');
-  
-  // UI States
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+if (typeof window !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger);
+}
+
+// --- UTILS & COMPONENTS ---
+
+const NoiseOverlay = () => (
+  <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.02] overflow-hidden">
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <filter id="noise">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#noise)" />
+    </svg>
+  </div>
+);
+
+const MagneticButton = ({ children, className = "", onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => {
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const userRole = await getUserRole(user.id);
-          setRole(userRole);
-          
-          const { data: perfil } = await supabase.from('ibs_perfis').select('nome_completo, avatar_url').eq('id', user.id).single();
-          if (perfil) {
-            setNomeUsuario(perfil.nome_completo || 'Usuário');
-            setAvatarUrl(perfil.avatar_url || '');
-          }
+    const btn = btnRef.current;
+    if (!btn) return;
 
-          // Buscar Alertas de Estoque Baixo
-          const { data: mats } = await supabase
-            .from('ibs_estoque')
-            .select('nome, m2_saldo, limite_minimo');
-          
-          const alertasCount = mats?.filter(m => Number(m.m2_saldo) < Number(m.limite_minimo)).length || 0;
-          const estoqueBaixoItens = mats?.filter(m => Number(m.m2_saldo) < Number(m.limite_minimo)) || [];
+    const onMouseMove = (e: MouseEvent) => {
+      const rect = btn.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      gsap.to(btn, { x: x * 0.25, y: y * 0.25, duration: 0.6, ease: "power3.out" });
+    };
 
-          // Buscar Faturamento Real
-          const { data: faturamentoData } = await supabase
-            .from('ibs_pedidos')
-            .select('valor_total')
-            .in('status', ['PEDIDO', 'APROVADO']);
-          
-          const totalFaturamento = faturamentoData?.reduce((acc, p) => acc + Number(p.valor_total), 0) || 0;
+    const onMouseLeave = () => {
+      gsap.to(btn, { x: 0, y: 0, duration: 0.8, ease: "elastic.out(1, 0.3)" });
+    };
 
-          // Buscar Clientes
-          const { count: clientCount } = await supabase
-            .from('ibs_clientes')
-            .select('*', { count: 'exact', head: true });
-          
-          // Buscar Orçamentos
-          const { count: orcamentosCount } = await supabase
-            .from('ibs_pedidos')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'ORCAMENTO');
-
-          setStats([
-            { name: 'Faturamento Bruto', value: `R$ ${totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '+0%', icon: DollarSign, color: 'text-emerald-400', adminOnly: true },
-            { name: 'Clientes Ativos', value: String(clientCount || 0), change: '+0', icon: Users, color: 'text-blue-400', adminOnly: false },
-            { name: 'Orçamentos Ativos', value: String(orcamentosCount || 0), change: '+0%', icon: FileText, color: 'text-[#D4AF37]', adminOnly: false },
-            { name: 'Alertas de Estoque', value: String(alertasCount), change: '-0%', icon: AlertTriangle, color: 'text-rose-500', adminOnly: false },
-          ]);
-
-          // Formatar Atividades Recentes baseadas em estoque baixo
-          setAtividades(estoqueBaixoItens.map(item => ({
-            titulo: `Estoque Baixo: ${item.nome}`,
-            info: `Apenas ${Number(item.m2_saldo).toFixed(3)} $m^2$ restantes`,
-            tipo: 'ESTOQUE'
-          })).slice(0, 3));
-        }
-      } catch (err) {
-        console.error('Erro ao carregar dashboard:', err);
-      }
-      setLoading(false);
-    }
-    fetchData();
+    btn.addEventListener("mousemove", onMouseMove);
+    btn.addEventListener("mouseleave", onMouseLeave);
+    return () => {
+      btn.removeEventListener("mousemove", onMouseMove);
+      btn.removeEventListener("mouseleave", onMouseLeave);
+    };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#121212]">
-        <Loader2 className="animate-spin text-[#D4AF37]" size={40} />
-      </div>
-    );
-  }
+  return (
+    <button 
+      ref={btnRef} 
+      onClick={onClick}
+      className={`relative overflow-hidden group rounded-full transition-transform active:scale-95 ${className}`}
+    >
+      <span className="relative z-10 flex items-center justify-center gap-2">
+        {children}
+      </span>
+    </button>
+  );
+};
+
+// --- NAVIGATION ---
+
+const Navbar = () => {
+  const [scrolled, setScrolled] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('');
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    
+    async function fetchLogo() {
+      const { data } = await supabase.from('ibs_configuracoes').select('logo_url').eq('id', 1).single();
+      if (data?.logo_url) setLogoUrl(data.logo_url);
+    }
+    fetchLogo();
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white pb-24 font-sans selection:bg-[#D4AF37]/30">
-      {/* Header Mobile Style */}
-      <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 sticky top-0 bg-[#1A1A1A]/95 backdrop-blur-md z-40">
-        <button 
-          onClick={() => setIsMenuOpen(true)}
-          className="p-2 -ml-2 text-gray-400 hover:text-[#D4AF37] transition-colors lg:hidden"
-        >
-          <Menu size={24} />
-        </button>
-        <h1 className="text-2xl font-black tracking-tighter text-[#D4AF37] lg:hidden">IBS</h1>
+    <nav className={`fixed top-0 left-0 right-0 z-[999] transition-all duration-700 px-6 md:px-12 py-10 ${
+      scrolled ? 'bg-[#0D0D12]/98 backdrop-blur-2xl border-b border-white/5 py-4 shadow-2xl' : 'bg-transparent'
+    }`}>
+      <div className="max-w-[1800px] mx-auto flex items-center justify-between">
         
-        {/* Espaçador na versão desktop para manter a direita */}
-        <div className="hidden lg:block flex-1"></div>
-
-        <div className="flex items-center gap-4 relative">
-          <button 
-            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="relative p-2 text-gray-400 hover:text-[#D4AF37] transition-colors focus:outline-none"
-          >
-            <Bell size={24} />
-            {stats[3].value !== '0' && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-[#121212]"></span>}
-          </button>
-
-          {/* Dropdown de Notificações */}
-          {isNotificationsOpen && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-[#1A1A1A] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2">
-              <h4 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Bell size={16} className="text-[#D4AF37]" />
-                Notificações
-              </h4>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                {atividades.length > 0 ? (
-                  atividades.map((ativ, i) => (
-                    <div key={i} className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl">
-                      <p className="text-xs font-bold text-rose-400">{ativ.titulo}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">{ativ.info}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-gray-500 text-center py-4">Nenhuma nova notificação</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          <Link href="/settings" className="block focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 rounded-full">
-            <div className="w-10 h-10 rounded-full border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] transition-colors overflow-hidden bg-gray-800 shadow-lg cursor-pointer">
-              <img 
-                src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${nomeUsuario.replace(/\s+/g, '')}`} 
-                alt="Avatar" 
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </Link>
+        {/* Esquerda: Menu Parte 1 (3 itens para equilibrar o peso) */}
+        <div className="hidden lg:flex items-center gap-10 flex-1 justify-end">
+          {['Materiais', 'Processo', 'Empresa'].map((item) => (
+            <a 
+              key={item} 
+              href={`#${item.toLowerCase()}`}
+              className="text-[10px] font-bold uppercase tracking-[0.4em] transition-colors text-gray-400 hover:text-white"
+            >
+              {item}
+            </a>
+          ))}
         </div>
-      </header>
 
-      {/* Mobile Sidebar Overlay */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-[60] lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
-          <div className="absolute inset-y-0 left-0 w-72 bg-[#121212] border-r border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
-              <h1 className="text-3xl font-black tracking-tighter text-[#D4AF37] uppercase flex items-center gap-3">
-                IBS
-              </h1>
-              <button onClick={() => setIsMenuOpen(false)} className="p-2 text-gray-500 hover:text-white bg-white/5 rounded-xl">
-                <Plus size={24} className="rotate-45" />
-              </button>
+        {/* Centro: Logo Imperial (Estrela da Página) */}
+        <Link href="/dashboard" className="flex items-center justify-center px-16 lg:px-24 group">
+          <img 
+            src={logoUrl || "https://ovfpxfshmizmsidvjkgb.supabase.co/storage/v1/object/public/ibs-assets/logo-ibs.png"} 
+            alt="IBS Logo" 
+            className={`w-auto object-contain transition-all duration-700 group-hover:scale-105 ${
+              scrolled ? 'h-18 md:h-20' : 'h-28 md:h-32 lg:h-36'
+            }`}
+          />
+        </Link>
+
+        {/* Direita: Menu Parte 2 + Acesso Restrito */}
+        <div className="hidden lg:flex items-center gap-10 flex-1 justify-start">
+          <a 
+            href="#contato"
+            className="text-[10px] font-bold uppercase tracking-[0.4em] transition-colors text-gray-400 hover:text-white"
+          >
+            Contato
+          </a>
+          <a 
+            href="/login" 
+            className="relative flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-8 py-3.5 rounded-full border border-white/10 text-white bg-white/5 hover:bg-[#C9A84C] hover:text-[#0D0D12] hover:border-[#C9A84C] transition-all ml-4 z-[1000] cursor-pointer"
+          >
+            <User size={14} /> Área Restrita
+          </a>
+        </div>
+
+        {/* Mobile Menu Icon (Simple toggle could be added) */}
+        <div className="lg:hidden">
+          <Menu className="text-white cursor-pointer" size={28} />
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+// --- HERO ---
+
+const Hero = () => {
+  const container = useRef(null);
+
+  useEffect(() => {
+    let ctx = gsap.context(() => {
+      gsap.from(".hero-line", {
+        y: 80,
+        opacity: 0,
+        duration: 1.4,
+        stagger: 0.15,
+        ease: "power4.out"
+      });
+    }, container);
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <section ref={container} className="relative h-[100dvh] flex items-center justify-center bg-[#0D0D12] overflow-hidden">
+      <div className="absolute inset-0">
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-40 scale-105"
+          style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1628155259418-f686ca079c67?q=80&w=2000&auto=format&fit=crop")' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/40 to-black" />
+      </div>
+
+      <div className="relative z-10 text-center px-8">
+        <span className="hero-line inline-block text-[11px] font-bold uppercase tracking-[0.6em] text-[#C9A84C] mb-8">Pedras Nobres • Marcenaria em Rocha</span>
+        <h1 className="hero-line text-5xl md:text-8xl lg:text-9xl font-extrabold text-white uppercase tracking-tighter leading-[0.9] mb-12">
+          A Evolução do <br/>
+          <span className="text-[#C9A84C]">Acabamento.</span>
+        </h1>
+        <div className="hero-line flex flex-col md:flex-row items-center justify-center gap-8 mt-12">
+          <MagneticButton className="bg-[#C9A84C] text-[#0D0D12] px-12 py-5 text-[11px] font-black uppercase tracking-widest">
+            Falar com um Especialista
+          </MagneticButton>
+          <p className="text-gray-400 text-sm max-w-[300px] leading-relaxed md:text-left border-l border-white/10 pl-6">
+            Projetos residenciais e comerciais de luxo com execução técnica precisa e materiais exclusivos.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// --- FEATURES ---
+
+const Materials = () => {
+  const cards = [
+    {
+      title: "Mármores Exclusivos",
+      desc: "Curadoria de placas nobres importadas diretamente das jazidas mais prestigiadas do mundo.",
+      img: "https://images.unsplash.com/photo-1628155259418-f686ca079c67?q=80&w=800&auto=format&fit=crop",
+      icon: <Sparkles className="text-[#C9A84C]" size={24} />
+    },
+    {
+      title: "Granitos de Luxo",
+      desc: "Resistência e beleza natural em cores selecionadas para projetos que exigem durabilidade extrema.",
+      img: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=800&auto=format&fit=crop",
+      icon: <Search className="text-[#C9A84C]" size={24} />
+    },
+    {
+      title: "Quartzitos Raros",
+      desc: "O equilíbrio perfeito entre a estética do mármore e a dureza suprema do granito.",
+      img: "https://images.unsplash.com/photo-1516962215378-7fa2e137ae93?q=80&w=800&auto=format&fit=crop",
+      icon: <Compass className="text-[#C9A84C]" size={24} />
+    }
+  ];
+
+  return (
+    <section id="materiais" className="py-32 bg-white px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-24">
+          <span className="text-[11px] font-bold uppercase tracking-[0.4em] text-[#C9A84C] block mb-4">Catálogo Signature</span>
+          <h2 className="text-4xl md:text-6xl font-black text-[#0D0D12] uppercase tracking-tighter">Materiais de <br/>Alta Fidelidade</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          {cards.map((card, i) => (
+            <div key={i} className="group cursor-pointer">
+              <div className="relative aspect-[4/5] rounded-[2.5rem] overflow-hidden mb-8 border border-gray-100">
+                <img src={card.img} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={card.title} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-10 left-10">{card.icon}</div>
+              </div>
+              <h3 className="text-2xl font-black text-[#0D0D12] uppercase tracking-tighter mb-4">{card.title}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{card.desc}</p>
             </div>
-            <div className="flex-1 p-6 flex flex-col justify-center space-y-4">
-               {/* As opções de navegação já estão na barra inferior, mas podemos colocar atalhos aqui */}
-               <Link href="/settings" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-4 text-gray-400 hover:text-[#D4AF37] hover:bg-white/5 rounded-2xl transition-colors font-bold uppercase tracking-widest text-xs">
-                 <Users size={20} /> Meu Perfil
-               </Link>
-               <Link href="/orcamento/novo" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-4 text-gray-400 hover:text-[#D4AF37] hover:bg-white/5 rounded-2xl transition-colors font-bold uppercase tracking-widest text-xs">
-                 <Plus size={20} /> Novo Orçamento
-               </Link>
-               
-               <div className="mt-auto pt-8 border-t border-white/5">
-                 <button 
-                   onClick={async () => {
-                     await supabase.auth.signOut();
-                     localStorage.clear();
-                     window.location.replace('/login');
-                   }}
-                   className="flex items-center gap-4 p-4 w-full text-rose-500 hover:bg-rose-500/5 rounded-2xl transition-colors font-bold uppercase tracking-widest text-xs"
-                 >
-                   Sair do Sistema
-                 </button>
-               </div>
-            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// --- PROCESS / STACKING CARDS ---
+
+const Process = () => {
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    let ctx = gsap.context(() => {
+      const cards = gsap.utils.toArray('.process-card') as any[];
+      
+      cards.forEach((card, i) => {
+        // Pin individual cards with spacing
+        ScrollTrigger.create({
+          trigger: card,
+          start: "top 120px",
+          pin: true,
+          pinSpacing: false,
+          endTrigger: sectionRef.current,
+          end: "bottom bottom",
+        });
+
+        // Effect for previous cards as the new one enters
+        if (i < cards.length - 1) {
+          gsap.to(card, {
+            scale: 0.92,
+            opacity: 0.6,
+            filter: "blur(2px)",
+            scrollTrigger: {
+              trigger: cards[i + 1],
+              start: "top 80%",
+              end: "top 150px",
+              scrub: true
+            }
+          });
+        }
+      });
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <section id="processo" ref={sectionRef} className="bg-[#0D0D12] pb-[10vh]">
+      <div className="h-[20vh] flex flex-col items-center justify-center text-center">
+        <span className="text-[11px] font-bold uppercase tracking-[0.5em] text-[#C9A84C] mb-4">Metodologia Imperial</span>
+        <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter">Nosso Processo de Execução</h2>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 space-y-[20vh]">
+        {[
+          {
+            step: "01",
+            title: "Medição a Laser",
+            desc: "Utilizamos escaneamento digital 3D para capturar as dimensões do ambiente com precisão técnica. Isso garante que cada peça seja fabricada no tamanho exato para a instalação.",
+            img: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1200&auto=format&fit=crop"
+          },
+          {
+            step: "02",
+            title: "Projetamento",
+            desc: "Nossa equipe técnica mapeia os veios e padrões da pedra no software de CAD, permitindo que você visualize como o material ficará após os cortes e junções.",
+            img: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=1200&auto=format&fit=crop"
+          },
+          {
+            step: "03",
+            title: "Corte e Lapidação",
+            desc: "Processamento automatizado em máquinas de 5 eixos. Acabamentos rigorosos que realçam a sofisticação da pedra e garantem a longevidade da obra.",
+            img: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=1200&auto=format&fit=crop"
+          }
+        ].map((item, i) => (
+          <div key={i} className="process-card w-full flex items-center justify-center">
+             <div className="bg-[#111111] rounded-[3.5rem] border border-white/5 p-12 md:p-24 w-full flex flex-col md:flex-row gap-16 items-center shadow-2xl">
+                <div className="flex-1 space-y-8">
+                  <span className="text-[10px] font-black text-[#C9A84C] uppercase tracking-[0.4em]">{item.step} // Fase</span>
+                  <h3 className="text-5xl md:text-7xl font-black text-white uppercase tracking-tighter">{item.title}</h3>
+                  <p className="text-gray-400 text-lg leading-relaxed">{item.desc}</p>
+                </div>
+                <div className="flex-1 w-full aspect-square rounded-[2.5rem] overflow-hidden border border-white/5 relative bg-black/40">
+                  <img src={item.img} className="w-full h-full object-cover opacity-60 grayscale" alt={item.title} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-40" />
+                </div>
+             </div>
+          </div>
+        ))}
+      </div>
+      {/* Spacer to allow the last card to pin and scroll past */}
+      <div className="h-[20vh]" />
+    </section>
+  );
+};
+
+// --- CONTACT / GET STARTED ---
+
+const Contact = () => {
+  return (
+    <section id="contato" className="py-48 bg-[#FAF8F5] px-8 text-[#0D0D12]">
+      <div className="max-w-4xl mx-auto text-center">
+        <span className="text-[11px] font-bold uppercase tracking-[0.4em] text-[#C9A84C] mb-8 block">Solicite um Orçamento</span>
+        <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter mb-12">Vamos iniciar seu <br/>novo projeto?</h2>
+        <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+           <MagneticButton className="bg-[#0D0D12] text-white px-12 py-5 text-[11px] font-black uppercase tracking-widest transition-transform hover:scale-105 active:scale-95">
+              Enviar WhatsApp
+           </MagneticButton>
+           <button className="px-12 py-5 text-[11px] font-black uppercase tracking-widest border border-gray-200 rounded-full hover:bg-gray-50 transition-colors">
+              Baixar Catálogo
+           </button>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// --- FOOTER ---
+
+const Footer = () => {
+  const [logoUrl, setLogoUrl] = useState('');
+
+  useEffect(() => {
+    async function fetchLogo() {
+      const { data } = await supabase.from('ibs_configuracoes').select('logo_url').eq('id', 1).single();
+      if (data?.logo_url) setLogoUrl(data.logo_url);
+    }
+    fetchLogo();
+  }, []);
+
+  return (
+    <footer className="bg-[#000000] text-white pt-32 pb-12 px-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-20 mb-32 items-start">
+        <div className="md:col-span-2 flex flex-col items-center md:items-start text-center md:text-left space-y-12">
+          <img 
+            src={logoUrl || "https://ovfpxfshmizmsidvjkgb.supabase.co/storage/v1/object/public/ibs-assets/logo-ibs.png"} 
+            alt="IBS Logo" 
+            className="h-28 md:h-36 w-auto object-contain"
+          />
+          <p className="text-gray-500 text-lg leading-relaxed max-w-sm">
+            Especialistas em processamento e instalação de mármores e granitos de alto padrão. Tradição e tecnologia para projetos exclusivos.
+          </p>
+        </div>
+        
+        <div className="space-y-8 flex flex-col items-center md:items-start">
+          <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#C9A84C]">Links</span>
+          <ul className="space-y-4 text-xs font-bold uppercase tracking-widest text-gray-500 text-center md:text-left">
+            <li><a href="#materiais" className="hover:text-white transition-colors">Materiais</a></li>
+            <li><a href="#processo" className="hover:text-white transition-colors">Processo Especializado</a></li>
+            <li><Link href="/login" className="text-[#C9A84C] hover:brightness-125 transition-all">Acesso Restrito</Link></li>
+          </ul>
+        </div>
+
+        <div className="space-y-8 flex flex-col items-center md:items-start">
+          <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#C9A84C]">Sede</span>
+          <div className="text-center md:text-left space-y-4">
+            <p className="text-xs font-bold uppercase tracking-widest leading-relaxed text-gray-500">
+              Av. Oceânica nº 91, Centro <br/>
+              Barra dos Coqueiros - SE
+            </p>
+            <p className="text-sm font-bold text-white">(79) 3014-0499</p>
           </div>
         </div>
-      )}
+      </div>
 
-      <main className="px-6 py-8 space-y-8 max-w-lg mx-auto lg:max-w-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-start lg:space-y-0">
-        <div className="space-y-8">
-          <section className="space-y-1">
-            <h2 className="text-3xl font-black text-[#D4AF37] tracking-tighter uppercase italic">Visão Geral do Painel</h2>
-            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-[10px] md:text-xs">Dados em tempo real da Imperial Barra Stone</p>
-          </section>
-
-          <section className="grid grid-cols-1 gap-4">
-            {stats.filter(s => !s.adminOnly || role === 'ADMIN').map((stat, i) => (
-              <div key={i} className="bg-[#1E1E1E] p-7 rounded-[2.5rem] border border-white/5 shadow-xl relative overflow-hidden group">
-                <div className="flex justify-between items-start mb-6">
-                  <div className={`p-3 rounded-2xl ${stat.color} bg-white/5`}>
-                    <stat.icon size={28} />
-                  </div>
-                  <div className={`flex items-center gap-1 font-bold text-sm ${stat.color}`}>
-                    {stat.change}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-gray-500 font-medium uppercase tracking-widest text-[10px]">{stat.name}</p>
-                  <p className="text-4xl font-bold text-white tracking-tighter">{stat.value}</p>
-                </div>
-              </div>
-            ))}
-          </section>
+      <div className="max-w-7xl mx-auto border-t border-white/5 pt-12 flex flex-col md:flex-row justify-between items-center gap-8">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-600">© 2026 Imperial Barra Stones. All Rights Reserved.</p>
+        <div className="flex items-center gap-3 text-[10px] uppercase font-bold text-gray-400">
+           <span className="w-1.5 h-1.5 bg-[#C9A84C] rounded-full animate-pulse shadow-[0_0_10px_rgba(201,168,76,0.5)]" />
+           Sistema em Operação
         </div>
+      </div>
+    </footer>
+  );
+};
 
-        <div className="space-y-8">
-          <section className="space-y-4">
-            <h3 className="text-xl font-bold flex items-center gap-2 text-[#D4AF37]">
-              <TrendingUp size={22} className="rotate-45" />
-              Ações Rápidas
-            </h3>
-            <div className="flex flex-col gap-3">
-              <Link href="/orcamento/novo" className="w-full flex items-center gap-4 p-5 rounded-2xl border border-[#D4AF37]/30 hover:bg-[#D4AF37]/5 transition-all group text-[#D4AF37]">
-                <Plus size={24} />
-                <span className="font-bold text-lg">Novo Orçamento</span>
-              </Link>
-              <Link href="/estoque" className="w-full flex items-center gap-4 p-5 rounded-2xl border border-[#D4AF37]/30 hover:bg-[#D4AF37]/5 transition-all group text-[#D4AF37]">
-                <ClipboardList size={24} />
-                <span className="font-bold text-lg">Relatório de Estoque</span>
-              </Link>
-              <Link href="/clientes" className="w-full flex items-center gap-4 p-5 rounded-2xl border border-[#D4AF37]/30 hover:bg-[#D4AF37]/5 transition-all group text-[#D4AF37]">
-                <Users size={24} />
-                <span className="font-bold text-lg">Gerenciar Clientes</span>
-              </Link>
-              {role === 'ADMIN' && (
-                <Link href="/reports" className="w-full flex items-center gap-4 p-5 rounded-2xl border border-[#D4AF37]/30 hover:bg-[#D4AF37]/5 transition-all group text-[#D4AF37]">
-                  <BarChart3 size={24} />
-                  <span className="font-bold text-lg">Relatórios de Vendas</span>
-                </Link>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-xl font-bold text-[#D4AF37]">Atividade Recente</h3>
-            <div className="bg-[#1E1E1E] rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
-              {atividades.length > 0 ? atividades.map((atv, idx) => (
-                <div key={idx} className={`p-6 flex items-center justify-between gap-4 ${idx !== 0 ? 'border-t border-white/5' : ''}`}>
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500">
-                      {atv.tipo === 'ESTOQUE' ? <Package size={20} /> : <FileText size={20} />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm truncate">{atv.titulo}</p>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{atv.info}</p>
-                    </div>
-                  </div>
-                  <Link href="/estoque" className="text-[10px] font-black uppercase text-[#D4AF37] border-b border-[#D4AF37]/30 pb-0.5">
-                    Ver
-                  </Link>
-                </div>
-              )) : (
-                <div className="p-12 text-center">
-                  <p className="text-gray-600 font-bold uppercase text-xs tracking-widest text-balance">Nenhuma atividade crítica no momento.</p>
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
-      </main>
-    </div>
+export default function LandingPage() {
+  return (
+    <main className="bg-[#0D0D12] min-h-screen selection:bg-[#C9A84C] selection:text-black font-sans scroll-smooth overflow-x-hidden">
+      <NoiseOverlay />
+      <Navbar />
+      <Hero />
+      <Materials />
+      <Process />
+      <Contact />
+      <Footer />
+      
+      <style jsx global>{`
+        @keyframes scan {
+          0% { top: 0% }
+          100% { top: 100% }
+        }
+        .animate-scan {
+          animation: scan 3s linear infinite;
+        }
+      `}</style>
+    </main>
   );
 }

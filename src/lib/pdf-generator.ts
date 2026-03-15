@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { maskCPFCNPJ, maskPhone, maskCNPJ } from './masks';
 
@@ -49,7 +49,8 @@ const formatAddress = (addressJson: string | undefined): string => {
   }
 };
 
-export const generatePDF = async (data: OrcamentoData) => {
+export const generatePDF = async (data: OrcamentoData, mode: 'download' | 'print' = 'download') => {
+  console.log(`Iniciando geração de PDF (${mode})...`, data.id);
   const doc = new jsPDF() as any;
   const primaryColor = [40, 40, 40]; // Dark grey for text
   const accentColor = [180, 180, 180]; // Light grey for lines/borders
@@ -74,37 +75,55 @@ export const generatePDF = async (data: OrcamentoData) => {
     doc.text('IBS', 15, headerY + 15);
   }
 
-  // 2. Dados da Empresa (Centro)
+  // 2. Dados da Empresa (Centro-Esquerda)
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(data.empresa?.subtitulo || 'IMPERIAL BARRA STONES', 65, headerY + 5);
   
-  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(60, 60, 60);
+  doc.setFont('helvetica', 'normal');
   doc.text(data.empresa?.endereco || '', 65, headerY + 11);
-  doc.text(`CNPJ: ${maskCNPJ(data.empresa?.cnpj || '')}  |  IE: ${data.empresa?.ie || 'N/A'}`, 65, headerY + 15);
-  doc.text(`E-mail: ${data.empresa?.email || ''}`, 65, headerY + 19);
-  doc.text(`Telefone: ${maskPhone(data.empresa?.telefone || '')}`, 65, headerY + 23);
+  
+  // Linha CNPJ/IE
+  doc.setFont('helvetica', 'bold');
+  doc.text('CNPJ: ', 65, headerY + 15);
+  const cnpjWidth = doc.getTextWidth('CNPJ: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${maskCNPJ(data.empresa?.cnpj || '')}  |  IE: ${data.empresa?.ie || 'N/A'}`, 65 + cnpjWidth, headerY + 15);
 
-  // 3. Orçamento Info & QR Code (Direita)
+  // Linha E-mail
+  doc.setFont('helvetica', 'bold');
+  doc.text('E-mail: ', 65, headerY + 19);
+  const emailWidth = doc.getTextWidth('E-mail: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.empresa?.email || '', 65 + emailWidth, headerY + 19);
+
+  // Linha Telefone
+  doc.setFont('helvetica', 'bold');
+  doc.text('Telefone: ', 65, headerY + 23);
+  const telWidth = doc.getTextWidth('Telefone: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(maskPhone(data.empresa?.telefone || ''), 65 + telWidth, headerY + 23);
+
+  // 3. Orçamento Info
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(9);
-  doc.text('ORÇAMENTO Nº:', 150, headerY + 5);
-  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(protocolId, 150, headerY + 12);
+  doc.text('ORÇAMENTO Nº:', 145, headerY + 10, { align: 'center' });
+  doc.setFontSize(14);
+  doc.text(protocolId, 145, headerY + 18, { align: 'center' });
   
-  // QR Code (Simulado via Google Charts ou placeholder)
-  // Usaremos uma URL que gera o QR code com a chave PIX se disponível
+  // 4. QR Code (Direita)
   if (data.empresa?.empresa_pix) {
     try {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.empresa.empresa_pix)}`;
       const qrImg = await loadImage(qrUrl);
-      doc.addImage(qrImg, 'PNG', 175, headerY - 2, 22, 22);
-      doc.setFontSize(6);
-      doc.text('Pague via PIX', 186, headerY + 23, { align: 'center' });
+      doc.addImage(qrImg, 'PNG', 170, headerY - 2, 25, 25);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Pague via PIX', 182.5, headerY + 26, { align: 'center' });
     } catch (e) {
       console.warn('QR Code generation skipped');
     }
@@ -114,29 +133,62 @@ export const generatePDF = async (data: OrcamentoData) => {
   const clientY = 55;
   doc.setDrawColor(200, 200, 200);
   doc.setFillColor(245, 245, 245);
-  doc.rect(15, clientY, 180, 45); // Moldura
+  doc.rect(15, clientY, 180, 36);
   
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('DADOS DO CLIENTE', 18, clientY + 6);
   doc.line(15, clientY + 8, 195, clientY + 8);
 
-  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`NOME/RAZÃO: ${data.cliente_nome}`, 18, clientY + 14);
-  doc.text(`CPF/CNPJ: ${data.cliente_documento ? maskCPFCNPJ(data.cliente_documento) : 'N/A'}`, 18, clientY + 19);
   
+  // NOME/RAZÃO
+  doc.setFont('helvetica', 'bold');
+  doc.text('NOME/RAZÃO: ', 18, clientY + 14);
+  const labelNomeWidth = doc.getTextWidth('NOME/RAZÃO: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.cliente_nome, 18 + labelNomeWidth, clientY + 14);
+
+  // CPF/CNPJ
+  doc.setFont('helvetica', 'bold');
+  doc.text('CPF/CNPJ: ', 18, clientY + 19);
+  const labelDocWidth = doc.getTextWidth('CPF/CNPJ: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.cliente_documento ? maskCPFCNPJ(data.cliente_documento) : 'N/A', 18 + labelDocWidth, clientY + 19);
+  
+  // ENDEREÇO
+  doc.setFont('helvetica', 'bold');
+  doc.text('ENDEREÇO: ', 18, clientY + 24);
+  const labelAddrWidth = doc.getTextWidth('ENDEREÇO: ');
   const addr = formatAddress(data.cliente_endereco);
-  const addrLines = doc.splitTextToSize(`ENDEREÇO: ${addr}`, 100);
-  doc.text(addrLines, 18, clientY + 24);
+  doc.setFont('helvetica', 'normal');
+  const addrLines = doc.splitTextToSize(addr, 100 - labelAddrWidth);
+  doc.text(addrLines, 18 + labelAddrWidth, clientY + 24);
 
   // Coluna Direita (Dados do Pedido)
-  doc.text(`DATA: ${data.data}`, 130, clientY + 14);
-  doc.text(`VALIDADE: ${data.validade}`, 130, clientY + 19);
-  doc.text(`VENDEDOR: ${data.vendedor_nome.toUpperCase()}`, 130, clientY + 24);
+  // DATA
+  doc.setFont('helvetica', 'bold');
+  doc.text('DATA: ', 130, clientY + 14);
+  const labelDataWidth = doc.getTextWidth('DATA: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.data, 130 + labelDataWidth, clientY + 14);
+
+  // VALIDADE
+  doc.setFont('helvetica', 'bold');
+  doc.text('VALIDADE: ', 130, clientY + 19);
+  const labelValidadeWidth = doc.getTextWidth('VALIDADE: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.validade, 130 + labelValidadeWidth, clientY + 19);
+
+  // VENDEDOR
+  doc.setFont('helvetica', 'bold');
+  doc.text('VENDEDOR: ', 130, clientY + 24);
+  const labelVendWidth = doc.getTextWidth('VENDEDOR: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.vendedor_nome.toUpperCase(), 130 + labelVendWidth, clientY + 24);
 
   // --- TABELA DE MATERIAIS ---
-  const tableStartY = clientY + 50;
+  const tableStartY = clientY + 48; // Ajustado para dar espaço ao título fora do card
   doc.setFont('helvetica', 'bold');
   doc.text('DESCRIÇÃO DO MATERIAL', 105, tableStartY - 5, { align: 'center' });
 
@@ -178,9 +230,11 @@ export const generatePDF = async (data: OrcamentoData) => {
   doc.text(data.condicao_pgto, 18, currentY + 12);
   
   if (data.condicao_pgto === 'PARCELADO' && data.parcelas && data.parcelas.length > 0) {
-    const parcelasStr = data.parcelas.map((p, i) => `${i+1}ª: ${p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`).join(' | ');
-    const pLines = doc.splitTextToSize(parcelasStr, 110);
-    doc.text(pLines, 18, currentY + 18);
+    const qtd = data.parcelas.length;
+    const valor = data.parcelas[0].valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    doc.setFont('helvetica', 'bold');
+    doc.text(`PARCELADO EM ${qtd}X DE R$ ${valor}`, 18, currentY + 18);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(6);
     doc.text(`Vencimento inicial: ${data.parcelas[0]?.vencimento.split('-').reverse().join('/')}`, 18, currentY + 30);
   }
@@ -222,8 +276,14 @@ export const generatePDF = async (data: OrcamentoData) => {
   doc.text('- Frete por conta e ordem do adquirente. | Mat. nat. sujeitos a variações.', 105, footerStartY + 50, { align: 'center' });
   doc.text('VIA EMPRESA', 195, footerStartY + 50, { align: 'right' });
 
-  // Download
-  doc.save(`IBS_Orcamento_${protocolId}.pdf`);
+  // Ações Finais
+  if (mode === 'print') {
+    doc.autoPrint();
+    const h = doc.output('bloburl');
+    window.open(h, '_blank');
+  } else {
+    doc.save(`IBS_Orcamento_${protocolId}.pdf`);
+  }
 };
 
 // Helper para carregar imagem

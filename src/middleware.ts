@@ -64,16 +64,18 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Proteção de rotas - permitir /login e /register publicamente
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || 
+  // Proteção de rotas - permitir /, /login e /register publicamente
+  const isPublicRoute = request.nextUrl.pathname === '/' || 
+                        request.nextUrl.pathname.startsWith('/login') || 
                         request.nextUrl.pathname.startsWith('/register');
 
   if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/', request.url));
+  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/')) {
+    // Se logado e na landing ou login, vai pro dashboard
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return response;

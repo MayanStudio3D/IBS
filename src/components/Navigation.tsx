@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { getUserRole, type UserRole } from '@/lib/auth-utils';
 
 const navItems = [
-  { name: 'Início', href: '/', icon: Home, adminOnly: false },
+  { name: 'Início', href: '/dashboard', icon: Home, adminOnly: false },
   { name: 'Orçamentos', href: '/orcamento', icon: FileText, adminOnly: false },
   { name: 'Estoque', href: '/estoque', icon: Package, adminOnly: true },
   { name: 'Clientes', href: '/clientes', icon: Users, adminOnly: false },
@@ -87,7 +87,7 @@ export const Navbar = () => {
     }
   };
 
-  if (!ready || pathname === '/login' || pathname === '/register') return null;
+  if (!ready || pathname === '/' || pathname === '/login' || pathname === '/register') return null;
 
   const filteredItems = navItems.filter(item => !item.adminOnly || role === 'ADMIN');
 

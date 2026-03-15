@@ -8,7 +8,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
   // Páginas que NÃO devem ter a Sidebar nem a margem lateral
-  const isPublicPage = pathname === '/login' || pathname === '/register';
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/register';
 
   return (
     <body 

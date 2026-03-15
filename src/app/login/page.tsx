@@ -85,7 +85,7 @@ export default function LoginPage() {
         }
 
         // Redirecionar para o dashboard com recarregamento total
-        window.location.replace('/');
+        window.location.replace('/dashboard');
       }
     } catch (err) {
       setError('Erro de comunicação com o servidor.');

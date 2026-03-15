@@ -14,7 +14,8 @@ import {
   X,
   Save,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Printer
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -71,35 +72,43 @@ export default function OrcamentosPage() {
     fetchOrcamentos();
   }, []);
 
-  const handleDownloadPDF = async (o: any) => {
-    // Buscar configurações da empresa para o PDF
-    const { data: config } = await supabase.from('ibs_configuracoes').select('*').eq('id', 1).single();
+  const handleGeneratePDF = async (o: any, mode: 'download' | 'print' = 'download') => {
+    try {
+      // Buscar configurações da empresa para o PDF
+      const { data: config } = await supabase.from('ibs_configuracoes').select('*').eq('id', 1).single();
 
-    generatePDF({
-      id: o.id,
-      cliente_nome: o.ibs_clientes?.nome,
-      cliente_documento: o.ibs_clientes?.cpf_cnpj,
-      cliente_endereco: o.ibs_clientes?.endereco,
-      vendedor_nome: o.vendedor?.nome_completo || role, 
-      data: new Date(o.criado_em).toLocaleDateString('pt-BR'),
-      validade: new Date(o.validade_data).toLocaleDateString('pt-BR'),
-      items: o.ibs_pedido_itens || [],
-      total_m2: o.ibs_pedido_itens?.reduce((acc: number, item: any) => acc + Number(item.m2_total), 0) || 0,
-      total_valor: o.valor_total,
-      condicao_pgto: o.condicao_pagamento,
-      parcelas: o.parcelas || [],
-      empresa: {
-        logo_url: config?.logo_url,
-        subtitulo: config?.sistema_subtitulo,
-        cnpj: config?.empresa_cnpj,
-        ie: config?.empresa_ie,
-        endereco: config?.empresa_endereco,
-        telefone: config?.empresa_telefone,
-        email: config?.empresa_email,
-        empresa_pix: config?.empresa_pix,
-        empresa_banco: config?.empresa_banco
-      }
-    });
+      const dataCriacao = o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+      const dataValidade = o.validade_data ? new Date(o.validade_data).toLocaleDateString('pt-BR') : '-';
+
+      await generatePDF({
+        id: o.id,
+        cliente_nome: o.ibs_clientes?.nome || 'Cliente não identificado',
+        cliente_documento: o.ibs_clientes?.cpf_cnpj,
+        cliente_endereco: o.ibs_clientes?.endereco,
+        vendedor_nome: o.vendedor?.nome_completo || 'Sistema', 
+        data: dataCriacao,
+        validade: dataValidade,
+        items: o.ibs_pedido_itens || [],
+        total_m2: o.ibs_pedido_itens?.reduce((acc: number, item: any) => acc + Number(item.m2_total || 0), 0) || 0,
+        total_valor: o.valor_total || 0,
+        condicao_pgto: o.condicao_pagamento || 'A VISTA',
+        parcelas: o.parcelas || [],
+        empresa: {
+          logo_url: config?.logo_url,
+          subtitulo: config?.sistema_subtitulo,
+          cnpj: config?.empresa_cnpj,
+          ie: config?.empresa_ie,
+          endereco: config?.empresa_endereco,
+          telefone: config?.empresa_telefone,
+          email: config?.empresa_email,
+          empresa_pix: config?.empresa_pix,
+          empresa_banco: config?.empresa_banco
+        }
+      }, mode);
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
+      alert('Não foi possível gerar o PDF. Verifique se os dados estão completos.');
+    }
   };
 
   const approveBudget = async (id: string) => {
@@ -280,30 +289,45 @@ export default function OrcamentosPage() {
                  </p>
                )}
                
-               <div className="flex items-center gap-2">
-                 {(o.status === 'ORCAMENTO' || o.status === 'APROVADO' || o.status === 'PEDIDO') && (
-                   <div className="flex items-center gap-2">
-                     <Link 
-                       href={`/orcamento/${o.id}/editar`}
-                       className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-amber-500 hover:bg-amber-500/10 transition-all shadow-md active:scale-95 shrink-0"
-                       title="Editar"
-                     >
-                       <FileText size={20} />
-                     </Link>
-                     <button
-                       onClick={() => confirmDelete(o)}
-                       className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-rose-500/70 hover:text-rose-500 hover:bg-rose-500/10 transition-all shadow-md active:scale-95 shrink-0"
-                       title="Excluir"
-                     >
-                       <Trash2 size={20} />
-                     </button>
-                   </div>
-                 )}
-                 <button 
-                   onClick={() => handleDownloadPDF(o)}
-                   className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-gray-400 hover:text-white transition-all shadow-md active:scale-95 shrink-0"
-                   title="Baixar PDF"
-                 >
+                <div className="flex items-center gap-2">
+                  {['ORCAMENTO', 'APROVADO', 'PEDIDO', 'PENDENTE'].includes(o.status) && (
+                    <div className="flex items-center gap-2">
+                      <Link 
+                        href={`/orcamento/${o.id}/editar`}
+                        className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-amber-500 hover:bg-amber-500/10 transition-all shadow-md active:scale-95 shrink-0"
+                        title="Editar"
+                      >
+                        <FileText size={20} />
+                      </Link>
+                      <button
+                        onClick={() => confirmDelete(o)}
+                        className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-rose-500/70 hover:text-rose-500 hover:bg-rose-500/10 transition-all shadow-md active:scale-95 shrink-0"
+                        title="Excluir"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
+                  )}
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleGeneratePDF(o, 'print');
+                    }}
+                    className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-emerald-500 hover:bg-emerald-500/10 transition-all shadow-md active:scale-95 shrink-0"
+                    title="Imprimir Direto"
+                  >
+                    <Printer size={20} />
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleGeneratePDF(o, 'download');
+                    }}
+                    className="w-12 h-12 flex items-center justify-center bg-[#121212] border border-white/5 rounded-2xl text-gray-400 hover:text-white transition-all shadow-md active:scale-95 shrink-0"
+                    title="Baixar PDF"
+                  >
                    <Download size={20} />
                  </button>
                </div>

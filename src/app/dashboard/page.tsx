@@ -9,7 +9,8 @@ import {
   Clock, 
   ChevronRight,
   PlusCircle,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -23,9 +24,10 @@ export default function DashboardPage() {
     totalOrcamentos: 0,
     totalClientes: 0,
     totalEstoque: 0,
-    pedidosAbertos: 0
+    itensCriticos: 0
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [criticalStock, setCriticalStock] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -54,7 +56,7 @@ export default function DashboardPage() {
             totalOrcamentos: orcamentosCount || 0,
             totalClientes: clientesCount || 0,
             totalEstoque: estoqueCount || 0,
-            pedidosAbertos: 0 // Simplificado
+            itensCriticos: 0 // Será atualizado abaixo
           });
 
           // 2. Recent Orders
@@ -66,6 +68,14 @@ export default function DashboardPage() {
             .limit(5);
 
           if (orders) setRecentOrders(orders);
+
+          // 3. Critical Stock
+          const { data: allStock } = await supabase.from('ibs_estoque').select('*');
+          if (allStock) {
+            const filtered = allStock.filter(m => Number(m.m2_saldo) < Number(m.limite_minimo));
+            setCriticalStock(filtered);
+            setStats(prev => ({ ...prev, itensCriticos: filtered.length }));
+          }
         }
       } catch (err) {
         console.error('Erro no dashboard:', err);
@@ -122,10 +132,11 @@ export default function DashboardPage() {
           sub="Disponível"
         />
         <StatCard 
-          icon={<TrendingUp className="text-purple-500" />} 
-          label="Conversão" 
-          value="--" 
-          sub="Taxa mensal"
+          icon={<AlertTriangle className="text-rose-500" />} 
+          label="Estoque Crítico" 
+          value={stats.itensCriticos} 
+          sub="Itens p/ reposição"
+          isCritical={stats.itensCriticos > 0}
         />
       </div>
 
@@ -134,7 +145,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-[#1A1A1A] border border-white/5 rounded-[2.5rem] p-8 shadow-2xl">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-              <Clock size={20} className="text-[#D4AF37]" /> Últimos Projetos
+              <Clock size={20} className="text-[#D4AF37]" /> Últimos Orçamentos
             </h3>
             <Link href="/orcamento" className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest hover:underline">
               Ver todos
@@ -143,10 +154,14 @@ export default function DashboardPage() {
 
           <div className="space-y-4">
             {recentOrders.length > 0 ? recentOrders.map((order) => (
-              <div key={order.id} className="group flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.05] transition-all cursor-pointer">
+              <Link 
+                key={order.id} 
+                href={`/orcamento/${order.id}/editar`}
+                className="group flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.05] hover:border-[#D4AF37]/30 transition-all cursor-pointer"
+              >
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-[#D4AF37]/10 rounded-2xl flex items-center justify-center text-[#D4AF37] font-black">
-                    #{order.id.toString().slice(-3)}
+                  <div className="w-24 h-12 bg-[#D4AF37]/10 rounded-2xl flex items-center justify-center text-[#D4AF37] font-black text-[10px] shrink-0 border border-[#D4AF37]/20 shadow-inner">
+                    #{order.id.toString().substring(0, 8).toUpperCase()}
                   </div>
                   <div>
                     <h4 className="font-black text-white uppercase text-xs tracking-tight">{order.ibs_clientes?.nome || 'Cliente não identificado'}</h4>
@@ -163,7 +178,7 @@ export default function DashboardPage() {
                   </span>
                   <ChevronRight size={16} className="text-gray-700 group-hover:text-white transition-colors" />
                 </div>
-              </div>
+              </Link>
             )) : (
               <p className="text-center py-10 text-gray-600 font-medium">Nenhum orçamento encontrado.</p>
             )}
@@ -189,26 +204,59 @@ export default function DashboardPage() {
               Abrir Chamado
             </button>
           </div>
+
+          {/* Critical Stock Alerts */}
+          <div className="bg-[#1A1A1A] border border-white/5 rounded-[2.5rem] p-8 shadow-2xl">
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-2">
+              <AlertTriangle size={20} className="text-rose-500" /> Alerta de Estoque
+            </h3>
+            <div className="space-y-4">
+              {criticalStock.length > 0 ? criticalStock.map((item) => (
+                <Link 
+                  key={item.id} 
+                  href="/estoque"
+                  className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl flex justify-between items-center group hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
+                >
+                  <div>
+                    <p className="text-[10px] font-black text-white uppercase truncate max-w-[120px]">{item.nome}</p>
+                    <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest">Reposição Necessária</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-rose-500">{Number(item.m2_saldo).toFixed(2)} m²</p>
+                    <p className="text-[8px] text-gray-500 uppercase">Mín: {item.limite_minimo} m²</p>
+                  </div>
+                </Link>
+              )) : (
+                <div className="text-center py-6">
+                  <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Tudo em conformidade</p>
+                  <p className="text-gray-600 text-[8px] font-bold uppercase mt-1">Estoque atualizado</p>
+                </div>
+              )}
+              <Link href="/estoque" className="block w-full text-center py-3 bg-white/5 rounded-xl text-[9px] font-black text-white uppercase tracking-widest hover:bg-white/10 transition-all mt-4">
+                Gerenciar Estoque
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function StatCard({ icon, label, value, sub }: { icon: any, label: string, value: any, sub: string }) {
+function StatCard({ icon, label, value, sub, isCritical }: { icon: any, label: string, value: any, sub: string, isCritical?: boolean }) {
   return (
-    <div className="bg-[#1A1A1A] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl group hover:border-[#D4AF37]/20 transition-all">
+    <div className={`bg-[#1A1A1A] border p-8 rounded-[2.5rem] shadow-2xl group transition-all ${isCritical ? 'border-rose-500/30' : 'border-white/5 hover:border-[#D4AF37]/20'}`}>
       <div className="flex items-center justify-between mb-6">
-        <div className="p-3 bg-white/[0.03] rounded-2xl group-hover:scale-110 transition-transform">
+        <div className={`p-3 rounded-2xl group-hover:scale-110 transition-transform ${isCritical ? 'bg-rose-500/10' : 'bg-white/[0.03]'}`}>
           {icon}
         </div>
         <div className="h-1 w-12 bg-white/5 rounded-full overflow-hidden">
-          <div className="h-full bg-[#D4AF37] w-2/3" />
+          <div className={`h-full w-2/3 ${isCritical ? 'bg-rose-500' : 'bg-[#D4AF37]'}`} />
         </div>
       </div>
       <div className="space-y-1">
         <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{label}</h3>
-        <p className="text-3xl font-black text-white">{value}</p>
+        <p className={`text-3xl font-black ${isCritical ? 'text-rose-500' : 'text-white'}`}>{value}</p>
         <p className="text-[10px] text-gray-700 font-bold uppercase tracking-tight">{sub}</p>
       </div>
     </div>

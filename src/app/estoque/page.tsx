@@ -29,6 +29,7 @@ export default function EstoquePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [cargo, setCargo] = useState('');
   
   // Form para entrada de matéria-prima
   const [addForm, setAddForm] = useState({
@@ -42,6 +43,7 @@ export default function EstoquePage() {
     nome: '',
     valor_unitario: '',
     limite_minimo: '',
+    m2_saldo: '',
     foto_url: ''
   });
 
@@ -65,11 +67,31 @@ export default function EstoquePage() {
     } catch (err) {
       console.error('Erro ao buscar dados do estoque:', err);
     }
-    setLoading(false);
+  };
+
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: perfil } = await supabase
+          .from('ibs_perfis')
+          .select('cargo')
+          .eq('id', user.id)
+          .single();
+        if (perfil) setCargo(perfil.cargo);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar cargo:', err);
+    }
   };
 
   useEffect(() => {
-    fetchData();
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchData(), fetchUserRole()]);
+      setLoading(false);
+    };
+    init();
   }, []);
 
   const handleAddStock = async () => {
@@ -118,14 +140,23 @@ export default function EstoquePage() {
           nome: editForm.nome.toUpperCase(),
           valor_unitario: parseFloat(editForm.valor_unitario.toString().replace(',', '.')) || 0,
           limite_minimo: parseFloat(editForm.limite_minimo.toString().replace(',', '.')) || 0,
+          m2_saldo: parseFloat(editForm.m2_saldo.toString().replace(',', '.')) || 0,
           foto_url: editForm.foto_url
         })
         .eq('id', selectedMaterial.id);
 
       if (error) throw error;
       
+      await fetchData();
       setShowEditModal(false);
-      fetchData();
+      setLoading(false);
+
+      // Alerta proativo se entrar em estoque baixo
+      const novoSaldo = parseFloat(editForm.m2_saldo.toString().replace(',', '.'));
+      const limiteMin = parseFloat(editForm.limite_minimo.toString().replace(',', '.'));
+      if (novoSaldo < limiteMin) {
+        alert(`Atenção: O material "${editForm.nome.toUpperCase()}" entrou em nível de estoque baixo (${novoSaldo.toFixed(3)} m²).`);
+      }
     } catch (err: any) {
       alert(err.message || 'Erro ao atualizar material.');
       setLoading(false);
@@ -208,7 +239,18 @@ export default function EstoquePage() {
                       {/* Floating actions */}
                       <div className="absolute top-2 right-2 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 z-10">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setSelectedMaterial(m); setEditForm({ nome: m.nome, valor_unitario: m.valor_unitario, limite_minimo: m.limite_minimo, foto_url: m.foto_url || '' }); setShowEditModal(true); }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSelectedMaterial(m); 
+                            setEditForm({ 
+                              nome: m.nome, 
+                              valor_unitario: m.valor_unitario, 
+                              limite_minimo: m.limite_minimo, 
+                              m2_saldo: m.m2_saldo,
+                              foto_url: m.foto_url || '' 
+                            }); 
+                            setShowEditModal(true); 
+                          }}
                           className="w-8 h-8 flex items-center justify-center bg-[#121212]/90 backdrop-blur border border-white/10 rounded-full text-white hover:bg-white hover:text-amber-500 transition-colors shadow-xl"
                           title="Editar Material"
                         >
@@ -384,6 +426,20 @@ export default function EstoquePage() {
                   />
                 </div>
               </div>
+
+              {cargo === 'ADMIN' && (
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest font-black text-amber-500 ml-2">Ajuste de Saldo Total (m²) - ADMIN</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={editForm.m2_saldo}
+                    onChange={(e) => setEditForm({ ...editForm, m2_saldo: e.target.value })}
+                    className="w-full bg-[#121212] border border-amber-500/20 rounded-2xl px-6 py-4 text-white font-black outline-none focus:border-amber-500/50 text-xl"
+                  />
+                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest ml-2 italic">* Alteração direta de estoque físico</p>
+                </div>
+              )}
 
               <div>
                  <label className="text-[10px] uppercase tracking-widest font-black text-gray-500 ml-2 mb-2 block">Foto da Chapa (Opcional)</label>

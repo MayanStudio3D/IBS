@@ -84,7 +84,6 @@ export default function RegisterPage() {
             id: authData.user.id,
             nome_completo: nome,
             cargo: isAdmin ? 'ADMIN' : 'VENDEDOR',
-            role: isAdmin ? 'ADMIN' : 'USER',
             aprovado: isAdmin ? true : false
           });
 

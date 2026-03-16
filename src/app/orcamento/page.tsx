@@ -15,7 +15,11 @@ import {
   Save,
   Trash2,
   RotateCcw,
-  Printer
+  Printer,
+  Calendar,
+  Filter,
+  CalendarDays,
+  ListFilter
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +45,14 @@ export default function OrcamentosPage() {
   // Confirmação de exclusão
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<any>(null);
+  
+  // Filtros Avançados
+  const [filterMode, setFilterMode] = useState<'NONE' | 'DATE' | 'PERIOD' | 'MONTH_YEAR'>('NONE');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
 
   const fetchOrcamentos = async () => {
     try {
@@ -207,10 +219,40 @@ export default function OrcamentosPage() {
     }
   };
 
-  const filteredOrcamentos = orcamentos.filter(o => 
-    o.ibs_clientes?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    o.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOrcamentos = orcamentos.filter(o => {
+    const matchesSearch = o.ibs_clientes?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          o.id.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    const dataOriginal = new Date(o.criado_em);
+    const dataStr = dataOriginal.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    if (filterMode === 'DATE' && filterDate) {
+      return dataStr === filterDate;
+    }
+
+    if (filterMode === 'PERIOD' && filterStartDate && filterEndDate) {
+      return dataStr >= filterStartDate && dataStr <= filterEndDate;
+    }
+
+    if (filterMode === 'MONTH_YEAR') {
+      const matchMonth = filterMonth ? (dataOriginal.getMonth() + 1).toString().padStart(2, '0') === filterMonth : true;
+      const matchYear = filterYear ? dataOriginal.getFullYear().toString() === filterYear : true;
+      return matchMonth && matchYear;
+    }
+
+    return true;
+  });
+
+  const clearFilters = () => {
+    setFilterMode('NONE');
+    setFilterDate('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterMonth('');
+    setFilterYear('');
+  };
 
   if (loading) {
     return (
@@ -236,16 +278,141 @@ export default function OrcamentosPage() {
         </Link>
       </header>
 
-      {/* Busca */}
-      <div className="relative w-full">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
-        <input 
-          type="text"
-          placeholder="Pesquisar orçamento ou pedido..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-[#1A1A1A] border border-white/5 rounded-3xl pl-14 pr-6 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-all placeholder:text-gray-600 shadow-md"
-        />
+      {/* Busca e Filtros */}
+      <div className="space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
+            <input 
+              type="text"
+              placeholder="Pesquisar orçamento ou pedido..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[#1A1A1A] border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-all placeholder:text-gray-600 shadow-md h-14"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+            <button 
+              onClick={() => { clearFilters(); }}
+              className={`px-4 h-14 rounded-2xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shrink-0 ${filterMode === 'NONE' ? 'bg-[#D4AF37] text-[#121212] border-[#D4AF37]' : 'bg-[#1A1A1A] text-gray-400 border-white/5'}`}
+            >
+              <ListFilter size={16} /> Tudo
+            </button>
+            <button 
+              onClick={() => setFilterMode('DATE')}
+              className={`px-4 h-14 rounded-2xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shrink-0 ${filterMode === 'DATE' ? 'bg-[#D4AF37] text-[#121212] border-[#D4AF37]' : 'bg-[#1A1A1A] text-gray-400 border-white/5'}`}
+            >
+              <Calendar size={16} /> Dia
+            </button>
+            <button 
+              onClick={() => setFilterMode('PERIOD')}
+              className={`px-4 h-14 rounded-2xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shrink-0 ${filterMode === 'PERIOD' ? 'bg-[#D4AF37] text-[#121212] border-[#D4AF37]' : 'bg-[#1A1A1A] text-gray-400 border-white/5'}`}
+            >
+              <CalendarDays size={16} /> Período
+            </button>
+            <button 
+              onClick={() => setFilterMode('MONTH_YEAR')}
+              className={`px-4 h-14 rounded-2xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shrink-0 ${filterMode === 'MONTH_YEAR' ? 'bg-[#D4AF37] text-[#121212] border-[#D4AF37]' : 'bg-[#1A1A1A] text-gray-400 border-white/5'}`}
+            >
+              <Filter size={16} /> Mês/Ano
+            </button>
+          </div>
+        </div>
+
+        {/* Painel de Filtros Ativo */}
+        {filterMode !== 'NONE' && (
+          <div className="bg-[#1A1A1A] p-6 rounded-3xl border border-[#D4AF37]/10 animate-in slide-in-from-top-4 duration-300">
+            <div className="flex flex-wrap items-end gap-6 text-white">
+              {filterMode === 'DATE' && (
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest ml-2">Escolher uma data</label>
+                  <input 
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="bg-[#121212] border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-[#D4AF37]/30 transition-all outline-none"
+                  />
+                </div>
+              )}
+
+              {filterMode === 'PERIOD' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest ml-2">De</label>
+                    <input 
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="bg-[#121212] border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-[#D4AF37]/30 transition-all outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest ml-2">Até</label>
+                    <input 
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="bg-[#121212] border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-[#D4AF37]/30 transition-all outline-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              {filterMode === 'MONTH_YEAR' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest ml-2">Mês</label>
+                    <select 
+                      value={filterMonth}
+                      onChange={(e) => setFilterMonth(e.target.value)}
+                      className="bg-[#121212] border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-[#D4AF37]/30 transition-all outline-none appearance-none"
+                    >
+                      <option value="">Todos</option>
+                      <option value="01">Janeiro</option>
+                      <option value="02">Fevereiro</option>
+                      <option value="03">Março</option>
+                      <option value="04">Abril</option>
+                      <option value="05">Maio</option>
+                      <option value="06">Junho</option>
+                      <option value="07">Julho</option>
+                      <option value="08">Agosto</option>
+                      <option value="09">Setembro</option>
+                      <option value="10">Outubro</option>
+                      <option value="11">Novembro</option>
+                      <option value="12">Dezembro</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest ml-2">Ano</label>
+                    <select 
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                      className="bg-[#121212] border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-[#D4AF37]/30 transition-all outline-none"
+                    >
+                      <option value="">Todos</option>
+                      <option value="2024">2024</option>
+                      <option value="2025">2025</option>
+                      <option value="2026">2026</option>
+                      <option value="2027">2027</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <button 
+                onClick={clearFilters}
+                className="bg-rose-500/10 text-rose-500 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center gap-2"
+              >
+                <X size={14} /> Limpar
+              </button>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-white/5 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+              Exibindo <span className="text-white">{filteredOrcamentos.length}</span> resultados de <span className="text-white">{orcamentos.length}</span> registros totais.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid de Orçamentos */}
